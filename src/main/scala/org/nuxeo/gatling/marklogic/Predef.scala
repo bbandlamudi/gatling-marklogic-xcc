@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2016 Nuxeo SA (http://nuxeo.com/) and others.
+ * (C) Copyright 2020 Nuxeo SA (http://nuxeo.com/) and others.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  
  * Contributors:
  *     Kevin Leturc
+ *     Mads Hansen, MarkLogic Corporation
  */
 package org.nuxeo.gatling.marklogic
 
@@ -22,8 +23,8 @@ import io.gatling.http.feeder.SitemapFeederSupport
 
 object Predef extends SitemapFeederSupport {
 
-  def xcc = XccMarkLogicProtocolBuilder.DefaultXccProtocolBuilder
-
+  val xcc: XccMarkLogicProtocolBuilder = XccMarkLogicProtocolBuilder.DefaultXccProtocolBuilder
+  def xccBuilderToProtocol(builder: XccMarkLogicProtocolBuilder): XccMarkLogicProtocol = builder.build
   def xcc(requestName: String) = new Xcc(requestName)
 
 }

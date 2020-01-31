@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2016 Nuxeo SA (http://nuxeo.com/) and others.
+ * (C) Copyright 2020 Nuxeo SA (http://nuxeo.com/) and others.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,24 +15,49 @@
  *  
  * Contributors:
  *     Kevin Leturc
+ *     Mads Hansen, MarkLogic Corporation
  */
 package org.nuxeo.gatling.marklogic
 
 import java.net.URI
 
+import com.marklogic.xcc
 import com.marklogic.xcc.exceptions.RequestException
 import com.marklogic.xcc.{AdhocQuery, Content, ContentSourceFactory, Request}
-import io.gatling.core.config.Protocol
+import io.gatling.core.config.GatlingConfiguration
+import io.gatling.core.protocol.ProtocolComponents
+import io.gatling.core.CoreComponents
+import io.gatling.core.session.Session
+import io.gatling.core.protocol.{Protocol, ProtocolKey}
+
+case class XccMarkLogicProtocol(uri: String) extends Protocol {
+  type Components = XccMarkLogicComponents
+}
 
 object XccMarkLogicProtocol {
 
-  val DefaultXccProtocol = XccMarkLogicProtocol("xcc://root:root@localhost:8000")
+  def apply(uri: String) = new XccMarkLogicProtocol(uri)
+
+  val DefaultXccProtocol = new XccMarkLogicProtocol("xcc://root:root@localhost:8000")
+
+  val XccMarkLogicProtocolKey : ProtocolKey[XccMarkLogicProtocol, XccMarkLogicComponents] = new ProtocolKey[XccMarkLogicProtocol, XccMarkLogicComponents] {
+
+    def defaultProtocolValue(configuration: GatlingConfiguration) : XccMarkLogicProtocol =
+      throw new IllegalStateException("Can't provide default value for XccMarkLogicProtocol")
+
+    override def protocolClass: Class[Protocol] = classOf[XccMarkLogicProtocol].asInstanceOf[Class[io.gatling.core.protocol.Protocol]]
+
+    override def newComponents(coreComponents: CoreComponents): XccMarkLogicProtocol => XccMarkLogicComponents = {
+        xccMarkLogicProtocol => XccMarkLogicComponents(xccMarkLogicProtocol)
+    }
+
+  }
 
 }
 
-case class XccMarkLogicProtocol(uri: String) extends Protocol {
+case class XccMarkLogicComponents(xccMarkLogicProtocol: XccMarkLogicProtocol) extends ProtocolComponents {
 
-  val session = ContentSourceFactory.newContentSource(new URI(uri)).newSession()
+  val session: xcc.Session = ContentSourceFactory.newContentSource(new URI(xccMarkLogicProtocol.uri)).newSession()
 
   def call(content: Content): String = {
     try {
@@ -55,5 +80,8 @@ case class XccMarkLogicProtocol(uri: String) extends Protocol {
   def newAdhocQuery(query: String): AdhocQuery = {
     session.newAdhocQuery(query)
   }
+
+  override def onStart: Session => Session = ProtocolComponents.NoopOnStart
+  override def onExit: Session => Unit = ProtocolComponents.NoopOnExit
 
 }

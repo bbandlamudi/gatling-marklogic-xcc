@@ -1,10 +1,12 @@
-import io.gatling.recorder.controller.RecorderController
-import scala.collection.mutable
+import io.gatling.recorder.GatlingRecorder
+import io.gatling.recorder.config.RecorderPropertiesBuilder
 
 object Recorder extends App {
 
-	RecorderController(mutable.Map(
-		"outputFolder" -> Some(IDEPathHelper.recorderOutputDirectory.toString),
-		"simulationPackage" -> Some("org.nuxeo.gatling.marklogic"),
-		"requestBodiesFolder" -> Some(IDEPathHelper.requestBodiesDirectory.toString)))
+	val props = new RecorderPropertiesBuilder()
+		.simulationsFolder(IDEPathHelper.recorderSimulationsDirectory.toString)
+		.simulationPackage("org.nuxeo.gatling.marklogic")
+		.resourcesFolder(IDEPathHelper.resourcesDirectory.toString)
+
+	GatlingRecorder.fromMap(props.build, Some(IDEPathHelper.recorderConfigFile))
 }

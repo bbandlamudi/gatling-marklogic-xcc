@@ -4,10 +4,8 @@ import com.marklogic.xcc.ContentFactory
 import io.gatling.core.Predef._
 import org.nuxeo.gatling.marklogic.Predef._
 
-
 class XCCPutSearchSimulation extends Simulation {
-  val uri = "xcc://root:root@localhost:8020"
-  //val uri = "xcc://admin:systemml@localhost:8100"
+  val uri = "xcc://admin:admin@localhost:8000"
   val xccConf = xcc.uri(uri)
 
   val mlContent = ContentFactory.newContent("/${docId}.xml", """<document xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><ecm__name xsi:type="xs:string">doc</ecm__name><ecm__racl><nxml__item xsi:type="xs:string">Administrator</nxml__item><nxml__item xsi:type="xs:string">administrators</nxml__item><nxml__item xsi:type="xs:string">members</nxml__item></ecm__racl><ecm__primaryType xsi:type="xs:string">MyDocType</ecm__primaryType><my__testDefault xsi:type="xs:string">the default value</my__testDefault><my__testDefaultLong xsi:type="xs:long">0</my__testDefaultLong><ecm__id xsi:type="xs:string">${docId}</ecm__id><ecm__parentId xsi:type="xs:string">00000000-0000-0000-0000-000000000000</ecm__parentId><ecm__ancestorIds><nxml__item xsi:type="xs:string">00000000-0000-0000-0000-000000000000</nxml__item></ecm__ancestorIds><my__string xsi:type="xs:string">foo</my__string></document>""", null)

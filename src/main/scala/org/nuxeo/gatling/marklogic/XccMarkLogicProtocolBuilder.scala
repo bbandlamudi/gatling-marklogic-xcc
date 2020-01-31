@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2016 Nuxeo SA (http://nuxeo.com/) and others.
+ * (C) Copyright 2020 Nuxeo SA (http://nuxeo.com/) and others.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  
  * Contributors:
  *     Kevin Leturc
+ *     Mads Hansen, MarkLogic Corporation
  */
 package org.nuxeo.gatling.marklogic
 
@@ -28,8 +29,8 @@ object XccMarkLogicProtocolBuilder {
 
 case class XccMarkLogicProtocolBuilder(protocol: XccMarkLogicProtocol) {
 
-  def uri(uri: String) = copy(protocol = protocol.copy(uri = uri))
+  implicit def uri(uri: String): XccMarkLogicProtocolBuilder = copy(protocol = protocol.copy(uri = uri))
 
-  def build = protocol
+  def build: XccMarkLogicProtocol = protocol
 
 }

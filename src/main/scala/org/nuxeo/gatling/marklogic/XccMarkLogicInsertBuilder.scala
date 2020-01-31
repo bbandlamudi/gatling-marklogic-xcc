@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2016 Nuxeo SA (http://nuxeo.com/) and others.
+ * (C) Copyright 2020 Nuxeo SA (http://nuxeo.com/) and others.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,19 @@
  *  
  * Contributors:
  *     Kevin Leturc
+ *     Mads Hansen, MarkLogic Corporation
  */
 package org.nuxeo.gatling.marklogic
 
-import akka.actor.ActorDSL._
-import akka.actor.ActorRef
-import io.gatling.core.config.Protocols
-import io.gatling.core.session.Expression
+import io.gatling.core.action.Action
+import io.gatling.core.structure.ScenarioContext
 
-case class XccMarkLogicInsertBuilder(requestName: String, uri: Expression[String], content: Expression[String])
+case class XccMarkLogicInsertBuilder(requestName: String, uri: String, content: String)
   extends MarkLogicActionBuilder {
 
-  override def build(next: ActorRef, protocols: Protocols): ActorRef = {
-    actor(actorName(requestName)) {
-      new XccMarkLogicInsertCall(requestName, uri, content, xccProtocol(protocols), next)
-    }
+  override def build(ctx: ScenarioContext, next: Action): Action = {
+    import ctx._
+    new XccMarkLogicInsertCall(requestName, uri, content, components(protocolComponentsRegistry), coreComponents.statsEngine, coreComponents.clock, next)
   }
 
 }
