@@ -21,6 +21,7 @@
 
     <gatling.version>3.3.1</gatling.version>
     <gatling-highcharts.version>${gatling.version}</gatling-highcharts.version>
+    <gatling-plugin.version>3.0.5</gatling-plugin.version>
     <marklogic-xcc.version>9.0.11</marklogic-xcc.version>
     <scala-maven-plugin.version>4.3.1</scala-maven-plugin.version>
   </properties>
@@ -127,6 +128,18 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>io.gatling</groupId>
+        <artifactId>gatling-maven-plugin</artifactId>
+        <version>${gatling-plugin.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>execute</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
