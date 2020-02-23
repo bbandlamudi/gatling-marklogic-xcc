@@ -21,9 +21,10 @@ package org.nuxeo.gatling.marklogic
 
 import io.gatling.core.action.Action
 import io.gatling.core.protocol.ProtocolComponentsRegistry
+import io.gatling.core.session.Expression
 import io.gatling.core.structure.ScenarioContext
 
-case class XccMarkLogicSearchBuilder(requestName: String, query: String) extends MarkLogicActionBuilder {
+case class XccMarkLogicSearchBuilder(requestName: String, query: Expression[String]) extends MarkLogicActionBuilder {
 
   override def components(protocolComponentsRegistry: ProtocolComponentsRegistry): XccMarkLogicComponents =
     protocolComponentsRegistry.components(XccMarkLogicProtocol.XccMarkLogicProtocolKey)

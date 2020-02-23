@@ -26,14 +26,15 @@ import io.gatling.commons.util.{Clock, DefaultClock}
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.util.NameGen
 
-class XccMarkLogicSearchCall(requestName: String, query: String, xccMarkLogicComponents: XccMarkLogicComponents, statsEngine: StatsEngine, clock: Clock, val next: Action)
+class XccMarkLogicSearchCall(requestName: String, query: Expression[String], xccMarkLogicComponents: XccMarkLogicComponents, statsEngine: StatsEngine, clock: Clock, val next: Action)
   extends Action with ChainableAction with NameGen {
 
   override def name: String = genName("xccMarkLogicSearchCall")
 
   override def execute(session: Session): Unit = {
+
     val start = clock.nowMillis
-    val request = xccMarkLogicComponents.newAdhocQuery(query)
+    val request = xccMarkLogicComponents.newAdhocQuery(query(session).toOption.get)
     val result = xccMarkLogicComponents.call(request)
     val end = clock.nowMillis
 

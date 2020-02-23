@@ -20,9 +20,10 @@
 package org.nuxeo.gatling.marklogic
 
 import io.gatling.core.action.Action
+import io.gatling.core.session.Expression
 import io.gatling.core.structure.ScenarioContext
 
-case class XccMarkLogicGetBuilder(requestName: String, uri: String) extends MarkLogicActionBuilder {
+case class XccMarkLogicGetBuilder(requestName: String, uri: Expression[String]) extends MarkLogicActionBuilder {
 
   override def build(ctx: ScenarioContext, next: Action): Action = {
     import ctx._
