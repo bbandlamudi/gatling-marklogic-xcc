@@ -23,7 +23,7 @@ import io.gatling.core.action.Action
 import io.gatling.core.session.Expression
 import io.gatling.core.structure.ScenarioContext
 
-case class XccMarkLogicInsertBuilder(requestName: String, uri: Expression[String], content: Expression[String])
+case class XccMarkLogicInsertBuilder(requestName: Expression[String], uri: Expression[String], content: Expression[String])
   extends MarkLogicActionBuilder {
 
   override def build(ctx: ScenarioContext, next: Action): Action = {

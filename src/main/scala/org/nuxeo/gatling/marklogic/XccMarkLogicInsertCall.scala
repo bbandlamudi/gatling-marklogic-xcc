@@ -27,7 +27,13 @@ import io.gatling.core.session._
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.util.NameGen
 
-class XccMarkLogicInsertCall(requestName: String, uri: Expression[String], content: Expression[String], xccMarkLogicComponents:XccMarkLogicComponents, statsEngine: StatsEngine, clock: Clock, val next: Action)
+class XccMarkLogicInsertCall(requestName: Expression[String],
+                             uri: Expression[String],
+                             content: Expression[String],
+                             xccMarkLogicComponents:XccMarkLogicComponents,
+                             statsEngine: StatsEngine,
+                             clock: Clock,
+                             val next: Action)
   extends Action with ChainableAction with NameGen {
 
   override def name: String = genName("xccMarkLogicInsertCall")
@@ -39,11 +45,12 @@ class XccMarkLogicInsertCall(requestName: String, uri: Expression[String], conte
     val result = xccMarkLogicComponents.call(request)
     val end = clock.nowMillis
 
-    if (result == "")
-      statsEngine.logResponse(session, requestName, start, end, OK, None, None)
-    else
-      statsEngine.logResponse(session, requestName, start, end, KO, None, Some(result))
-
+    requestName.apply(session).foreach { resolvedRequestName =>
+      if (result == "")
+        statsEngine.logResponse(session, resolvedRequestName, start, end, OK, None, None)
+      else
+        statsEngine.logResponse(session, resolvedRequestName, start, end, KO, None, Some(result))
+    }
     next ! session
   }
 

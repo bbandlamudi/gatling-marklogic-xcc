@@ -19,12 +19,14 @@
  */
 package org.nuxeo.gatling.marklogic
 
+import io.gatling.core.session.Expression
 import io.gatling.http.feeder.SitemapFeederSupport
+import org.nuxeo.gatling.marklogic.check.XccCheckSupport.XccCheckSupport
 
-object Predef extends SitemapFeederSupport {
+object Predef extends XccCheckSupport with SitemapFeederSupport  {
 
   val xcc: XccMarkLogicProtocolBuilder = XccMarkLogicProtocolBuilder.DefaultXccProtocolBuilder
   def xccBuilderToProtocol(builder: XccMarkLogicProtocolBuilder): XccMarkLogicProtocol = builder.build
-  def xcc(requestName: String) = new Xcc(requestName)
+  def xcc(requestName: Expression[String]) = new Xcc(requestName)
 
 }

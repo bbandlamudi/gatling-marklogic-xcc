@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2020 Nuxeo SA (http://nuxeo.com/) and others.
+ * (C) Copyright 2020 MarkLogic Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,20 @@
  * limitations under the License.
  *
  * Contributors:
- *     Kevin Leturc
  *     Mads Hansen, MarkLogic Corporation
  */
 package org.nuxeo.gatling.marklogic
 
-import com.marklogic.xcc.ResultItem
-import io.gatling.commons.stats.KO
+import io.gatling.commons.stats.{KO, OK}
+import io.gatling.commons.util.Clock
 import io.gatling.core.action.Action
 import io.gatling.core.session._
-import io.gatling.commons.util.Clock
-import io.gatling.core.check.Check
 import io.gatling.core.stats.StatsEngine
+import java.util.regex.Pattern
+
+import com.marklogic.xcc.ResultItem
+
+import io.gatling.core.check.Check
 import io.gatling.http.request.builder.HttpParam
 import org.nuxeo.gatling.marklogic.action.XccActionWithParam
 
@@ -34,23 +36,32 @@ import ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
 
-class XccMarkLogicSearchCall[T](requestName: Expression[String],
-                             query: Expression[String],
+class XccMarkLogicInvokeCall[T](requestName: Expression[String],
+                             moduleUri: Expression[String],
                              queryParams: List[HttpParam],
                              xccMarkLogicComponents: XccMarkLogicComponents,
                              checks: List[XccCheck[T]],
                              mapFunction: ResultItem => T,
                              statsEngine: StatsEngine,
                              clock: Clock,
-                             val next: Action)
+                             var next: Action)
   extends XccActionWithParam {
 
-  override def name: String = genName("xccMarkLogicSearchCall")
+  override def name: String = genName("xccMarkLogicInvokeCall")
 
+  private val JAVASCRIPT_MODULE_FILENAME_PATTERN = Pattern.compile("(?i).*\\.s?js$")
+
+  def isJavaScriptModule(uri: String): Boolean = {
+    uri != null && JAVASCRIPT_MODULE_FILENAME_PATTERN.matcher(uri).matches()
+  }
   override def execute(session: Session): Unit = {
-
     val start = clock.nowMillis
-    val request = xccMarkLogicComponents.newAdhocQuery(query(session).toOption.get)
+    val request = xccMarkLogicComponents.newModuleInvoke(moduleUri(session).toOption.get)
+
+    if (isJavaScriptModule(moduleUri(session).toOption.get)) {
+      request.getOptions().setQueryLanguage("javascript")
+    }
+
     setRequestParams(request, queryParams, session)
 
     val future : Future[List[T]] = Future {
@@ -60,11 +71,11 @@ class XccMarkLogicSearchCall[T](requestName: Expression[String],
       case scala.util.Success(value) =>
         next ! Try(performChecks(session, start, value)).recover {
           case err =>
-            val logRequestName = requestName(session).toOption.getOrElse("XccSearchCall")
+            val logRequestName = requestName(session).toOption.getOrElse("XccInvokeCall")
             statsEngine.logCrash(session, logRequestName, err.getMessage)
             session.markAsFailed
         }.get
-      case fail: scala.util.Failure[_] => next ! log(start, clock.nowMillis, fail, requestName, session, statsEngine)
+       case fail: scala.util.Failure[_] => next ! log(start, clock.nowMillis, fail, requestName, session, statsEngine)
     }
   }
 

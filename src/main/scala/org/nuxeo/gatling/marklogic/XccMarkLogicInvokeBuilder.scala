@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2020 Nuxeo SA (http://nuxeo.com/) and others.
+ * (C) Copyright 2020 MarkLogic Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  * Contributors:
- *     Kevin Leturc
  *     Mads Hansen, MarkLogic Corporation
  */
 package org.nuxeo.gatling.marklogic
@@ -24,24 +23,23 @@ import io.gatling.core.action.Action
 import io.gatling.core.session.Expression
 import io.gatling.core.structure.ScenarioContext
 
-case class XccMarkLogicSearchBuilder(requestName: Expression[String], query: Expression[String])
-  extends MarkLogicActionBuilder[ResultItem] {
+case class XccMarkLogicInvokeBuilder(requestName: Expression[String], moduleUri: Expression[String])
+  extends MarkLogicActionBuilder[ResultItem]  {
 
-  def mapResult[T](mapFunction: ResultItem => T) = XccMarkLogicInvokeWithMappingActionBuilder(requestName, query, mapFunction)
+  def mapResult[T](mapFunction: ResultItem => T) = XccMarkLogicInvokeWithMappingActionBuilder(requestName, moduleUri, mapFunction)
 
   override def build(ctx: ScenarioContext, next: Action): Action = {
     import ctx._
-    new XccMarkLogicSearchCall(requestName, query, queryParams.toList, components(protocolComponentsRegistry), checks.toList, x => x, coreComponents.statsEngine, coreComponents.clock, next)
+    new XccMarkLogicInvokeCall(requestName, moduleUri, queryParams.toList, components(protocolComponentsRegistry), checks.toList, x => x, coreComponents.statsEngine, coreComponents.clock, next)
   }
 
 }
 
-case class XccMarkLogicSearchBuilderWithMappingActionBuilder[T](requestName: Expression[String], query: Expression[String], mapFunction: ResultItem => T)
+case class XccMarkLogicInvokeWithMappingActionBuilder[T](requestName: Expression[String], moduleUri: Expression[String], mapFunction: ResultItem => T)
   extends MarkLogicActionBuilder[T] {
 
-  override def build(ctx: ScenarioContext, next: Action): Action = {
+  override def build(ctx: ScenarioContext, next:Action) : Action = {
     import ctx._
-    new XccMarkLogicSearchCall(requestName, query, queryParams.toList, components(protocolComponentsRegistry), checks.toList, mapFunction, coreComponents.statsEngine, coreComponents.clock, next)
+    new XccMarkLogicInvokeCall(requestName, moduleUri, queryParams.toList, components(ctx.protocolComponentsRegistry), checks.toList, mapFunction, coreComponents.statsEngine, coreComponents.clock, next)
   }
-
 }

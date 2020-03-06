@@ -23,7 +23,7 @@ import java.net.URI
 
 import com.marklogic.xcc
 import com.marklogic.xcc.exceptions.RequestException
-import com.marklogic.xcc.{AdhocQuery, Content, ContentSourceFactory, Request}
+import com.marklogic.xcc.{AdhocQuery, Content, ContentSourceFactory, ModuleInvoke, Request, ResultSequence}
 import io.gatling.core.config.GatlingConfiguration
 import io.gatling.core.protocol.ProtocolComponents
 import io.gatling.core.CoreComponents
@@ -68,17 +68,16 @@ case class XccMarkLogicComponents(xccMarkLogicProtocol: XccMarkLogicProtocol) ex
     }
   }
 
-  def call(request: Request): String = {
-    try {
-      session.submitRequest(request)
-      ""
-    } catch {
-      case e: RequestException => e.getMessage
-    }
+  def call(request: Request): ResultSequence = {
+      session.submitRequest(request) //TODO: return ResultSequence, so that calls could be chained and responses analyzed?
   }
 
   def newAdhocQuery(query: String): AdhocQuery = {
     session.newAdhocQuery(query)
+  }
+
+  def newModuleInvoke(module: String): ModuleInvoke = {
+    session.newModuleInvoke(module)
   }
 
   override def onStart: Session => Session = ProtocolComponents.NoopOnStart

@@ -20,19 +20,22 @@
 package org.nuxeo.gatling.marklogic
 
 import io.gatling.core.session.Expression
+import org.nuxeo.gatling.marklogic.check.XccCheckSupport.XccCheckSupport
 
 /**
   * @param requestName the name of the request
   */
-class Xcc(requestName: String) {
+class Xcc(requestName: Expression[String])  extends XccCheckSupport {
 
   def uri(uri: Expression[String]): XccUri = XccUri(requestName, uri)
 
   def search(request: Expression[String]): XccMarkLogicSearchBuilder = XccMarkLogicSearchBuilder(requestName, request)
 
+  def invoke(moduleUri: Expression[String]): XccMarkLogicInvokeBuilder = XccMarkLogicInvokeBuilder(requestName, moduleUri)
+
 }
 
-case class XccUri(requestName: String, uri: Expression[String]) {
+case class XccUri(requestName: Expression[String], uri: Expression[String]) {
 
   def insert(content: Expression[String]): XccMarkLogicInsertBuilder = XccMarkLogicInsertBuilder(requestName, uri, content)
 
