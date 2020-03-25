@@ -19,7 +19,9 @@
  */
 package org.nuxeo.gatling.marklogic
 
+import java.math.BigInteger
 import java.net.URI
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{CompletableFuture, CompletionStage, ExecutorService, Executors, ThreadFactory}
 
@@ -27,7 +29,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import com.marklogic.xcc.exceptions.RequestException
 import com.marklogic.xcc.{AdhocQuery, Content, ContentSourceFactory, ModuleInvoke, Request, ResultSequence}
-import com.typesafe.scalalogging.{StrictLogging}
+import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.config.GatlingConfiguration
 import io.gatling.core.protocol.ProtocolComponents
 import io.gatling.core.CoreComponents
@@ -60,7 +62,11 @@ object XccMarkLogicProtocol extends StrictLogging {
 
     override def newComponents(coreComponents: CoreComponents): XccMarkLogicProtocol => XccMarkLogicComponents = {
         xccMarkLogicProtocol => {
-          val system = ActorSystem(xccMarkLogicProtocol.contentSource.getConnectionProvider.getHostName + xccMarkLogicProtocol.contentSource.getConnectionProvider.getPort)
+          //Generate a hash of the XCC URI as the key for components lookup
+          val actor = MessageDigest.getInstance("SHA-256")
+            .digest(xccMarkLogicProtocol.uri.getBytes("UTF-8"))
+            .map("%02x".format(_)).mkString
+          val system = ActorSystem(actor)
           XccMarkLogicComponents.componentsFor(xccMarkLogicProtocol, system)
         }
     }
