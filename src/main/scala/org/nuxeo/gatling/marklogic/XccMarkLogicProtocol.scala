@@ -20,67 +20,130 @@
 package org.nuxeo.gatling.marklogic
 
 import java.net.URI
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{CompletableFuture, CompletionStage, ExecutorService, Executors, ThreadFactory}
 
-import com.marklogic.xcc
+import akka.Done
+import akka.actor.ActorSystem
 import com.marklogic.xcc.exceptions.RequestException
 import com.marklogic.xcc.{AdhocQuery, Content, ContentSourceFactory, ModuleInvoke, Request, ResultSequence}
+import com.typesafe.scalalogging.{StrictLogging}
 import io.gatling.core.config.GatlingConfiguration
 import io.gatling.core.protocol.ProtocolComponents
 import io.gatling.core.CoreComponents
 import io.gatling.core.session.Session
 import io.gatling.core.protocol.{Protocol, ProtocolKey}
 
+import scala.collection.mutable
+
 case class XccMarkLogicProtocol(uri: String) extends Protocol {
   type Components = XccMarkLogicComponents
+  val contentSource = ContentSourceFactory.newContentSource(new URI(uri))
+  val xccUri = this.uri
 }
 
-object XccMarkLogicProtocol {
+object XccMarkLogicProtocol extends StrictLogging {
 
   def apply(uri: String) = new XccMarkLogicProtocol(uri)
 
   val DefaultXccProtocol = new XccMarkLogicProtocol("xcc://root:root@localhost:8000")
 
   val XccMarkLogicProtocolKey : ProtocolKey[XccMarkLogicProtocol, XccMarkLogicComponents] = new ProtocolKey[XccMarkLogicProtocol, XccMarkLogicComponents] {
+    type Protocol = XccMarkLogicProtocol
+    type Components = XccMarkLogicComponents
 
     def defaultProtocolValue(configuration: GatlingConfiguration) : XccMarkLogicProtocol =
       throw new IllegalStateException("Can't provide default value for XccMarkLogicProtocol")
 
-    override def protocolClass: Class[Protocol] = classOf[XccMarkLogicProtocol].asInstanceOf[Class[io.gatling.core.protocol.Protocol]]
+    def protocolClass: Class[io.gatling.core.protocol.Protocol] =
+      classOf[XccMarkLogicProtocol].asInstanceOf[Class[io.gatling.core.protocol.Protocol]]
 
     override def newComponents(coreComponents: CoreComponents): XccMarkLogicProtocol => XccMarkLogicComponents = {
-        xccMarkLogicProtocol => XccMarkLogicComponents(xccMarkLogicProtocol)
+        xccMarkLogicProtocol => {
+          val system = ActorSystem(xccMarkLogicProtocol.contentSource.getConnectionProvider.getHostName + xccMarkLogicProtocol.contentSource.getConnectionProvider.getPort)
+          XccMarkLogicComponents.componentsFor(xccMarkLogicProtocol, system)
+        }
     }
-
   }
-
 }
 
-case class XccMarkLogicComponents(xccMarkLogicProtocol: XccMarkLogicProtocol) extends ProtocolComponents {
+object XccMarkLogicComponents {
+  private val componentsCache = mutable.Map[ActorSystem, XccMarkLogicComponents]()
 
-  val session: xcc.Session = ContentSourceFactory.newContentSource(new URI(xccMarkLogicProtocol.uri)).newSession()
+  def componentsFor(xccMarkLogicProtocol: XccMarkLogicProtocol, system: ActorSystem): XccMarkLogicComponents = synchronized {
+    if (componentsCache.contains(system)) {
+      // Reuse shared components to avoid creating multiple loggers and executor services in the same simulation
+      val shared: XccMarkLogicComponents = componentsCache(system)
+      XccMarkLogicComponents(xccMarkLogicProtocol, shared.xccExecutorService)
+    } else {
+      // In integration tests, multiple simulations may be submitted to different Gatling instances of the same JVM
+      // Make sure that each actor system gets it own set of shared components
+      // This solves the "one set of components per scenario" problem as they are shared across scenarios
+      // This also solves the "one set of components per JVM" problem as they are only shared per actor system
+
+      // Create one executor service to handle the plugin tasks
+      val xccExecutorService = Executors.newCachedThreadPool(
+        new ThreadFactory(){
+          val identifierGenerator = new AtomicLong()
+          override def newThread(r: Runnable): Thread =
+            new Thread(r, "gating-marklogic-xcc-plugin-" + identifierGenerator.getAndIncrement() )
+        }
+      )
+
+      val xccMarkLogicComponents = XccMarkLogicComponents(xccMarkLogicProtocol, xccExecutorService)
+      componentsCache.put(system, xccMarkLogicComponents)
+      system.registerOnTermination(xccMarkLogicComponents.shutdown())
+      xccMarkLogicComponents
+    }
+  }
+}
+
+case class XccMarkLogicComponents(xccMarkLogicProtocol: XccMarkLogicProtocol, xccExecutorService: ExecutorService)
+  extends ProtocolComponents with StrictLogging {
+
+  private val xccUri = new URI(xccMarkLogicProtocol.xccUri)
+
+  // Currently, we DONT want to reuse ContentSource, we want HTTP 401 for performance test runs, to mimic current application behavior
+  def newSession(): com.marklogic.xcc.Session = ContentSourceFactory.newContentSource(xccUri).newSession
 
   def call(content: Content): String = {
+    var xccSession = None: Option[com.marklogic.xcc.Session]
     try {
-      session.insertContent(content)
+      xccSession =  Some(newSession)
+      xccSession.headOption.get.insertContent(content)
       ""
     } catch {
-      case e: RequestException => e.getMessage
+      case e: RequestException => {
+        e.getMessage}
+    } finally {
+      xccSession.headOption.get.close()
     }
   }
 
-  def call(request: Request): ResultSequence = {
-      session.submitRequest(request) //TODO: return ResultSequence, so that calls could be chained and responses analyzed?
+  def call(xccSession: com.marklogic.xcc.Session, request: Request): ResultSequence = {
+    try {
+      val result = xccSession.submitRequest(request) //TODO: return ResultSequence, so that calls could be chained and responses analyzed?
+      result
+    } finally {
+      xccSession.close()
+    }
   }
 
-  def newAdhocQuery(query: String): AdhocQuery = {
-    session.newAdhocQuery(query)
-  }
+  def newAdhocQuery(xccSession: com.marklogic.xcc.Session, query: String): AdhocQuery = xccSession.newAdhocQuery(query)
 
-  def newModuleInvoke(module: String): ModuleInvoke = {
-    session.newModuleInvoke(module)
-  }
+  def newModuleInvoke(xccSession: com.marklogic.xcc.Session, module: String): ModuleInvoke = xccSession.newModuleInvoke(module)
 
   override def onStart: Session => Session = ProtocolComponents.NoopOnStart
   override def onExit: Session => Unit = ProtocolComponents.NoopOnExit
+
+  def shutdown(): CompletionStage[Done] = {
+    logger.info("Shutting down thread pool")
+    val missed = xccExecutorService.shutdownNow().size()
+    if (missed > 0){
+      logger.warn("{} tasks were not completed because of shutdown", missed)
+    }
+    logger.info("Shut down complete")
+    CompletableFuture.completedFuture(Done)
+  }
 
 }

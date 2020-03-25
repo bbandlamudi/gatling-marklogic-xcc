@@ -47,16 +47,18 @@ class XccMarkLogicSearchCall[T](requestName: Expression[String],
 
   override def name: String = genName("xccMarkLogicSearchCall")
 
-  override def execute(session: Session): Unit = {
+  override def execute(session: Session): Unit = execute(session, xccMarkLogicComponents)
 
+  def sendQuery(session: Session): Unit = {
     val start = clock.nowMillis
-    val request = xccMarkLogicComponents.newAdhocQuery(query(session).toOption.get)
-    setRequestParams(request, queryParams, session)
-
-    val future : Future[List[T]] = Future {
-      xccMarkLogicComponents.call(request).toResultItemArray.toList.map(mapFunction)
-    }
-    future.onComplete {
+    val threadExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutorService(xccMarkLogicComponents.xccExecutorService)
+    Future {
+      val xccSession = xccMarkLogicComponents.newSession
+      val request = xccSession.newAdhocQuery(query(session).toOption.get)
+      setRequestParams(request, queryParams, session)
+      xccMarkLogicComponents.call(xccSession, request).toResultItemArray.toList.map(mapFunction)
+    }(threadExecutionContext)
+    .onComplete {
       case scala.util.Success(value) =>
         next ! Try(performChecks(session, start, value)).recover {
           case err =>

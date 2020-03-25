@@ -28,10 +28,17 @@ import io.gatling.core.action.ChainableAction
 import io.gatling.core.session.{Expression, Session}
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.util.NameGen
+import org.nuxeo.gatling.marklogic.XccMarkLogicComponents
 
 import scala.util.Try
 
 trait XccAction extends ChainableAction with NameGen {
+
+  def execute(session: Session, xccMarkLogicComponents: XccMarkLogicComponents): Unit = {
+    xccMarkLogicComponents.xccExecutorService.submit(new Runnable { override def run(): Unit = sendQuery(session) })
+  }
+
+  def sendQuery(session:Session)
 
   def log(start: Long, end: Long, tried: Try[_], requestName: Expression[String], session: Session, statsEngine: StatsEngine): Session = {
     val (status, message) = tried match {

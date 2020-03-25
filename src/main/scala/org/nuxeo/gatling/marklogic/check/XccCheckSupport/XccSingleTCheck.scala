@@ -32,7 +32,7 @@ object XccSingleTCheck {
 
   trait XccSingleTCheckType
 
-  def singleTPreparer[T]: Preparer[List[T], T] = something => something.head.success
+  def singleTPreparer[T]: Preparer[List[T], T] = something => something.headOption.toValidation("Empty Sequence")
 
   def singleTCheckMaterializer[T]: CheckMaterializer[XccSingleTCheckType, XccCheck[T], List[T], T] =
     new CheckMaterializer[XccSingleTCheckType, XccCheck[T], List[T], T](identity) {

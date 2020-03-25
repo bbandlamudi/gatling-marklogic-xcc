@@ -26,6 +26,10 @@ import io.gatling.core.action.{Action, ChainableAction}
 import io.gatling.core.session._
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.util.NameGen
+import org.nuxeo.gatling.marklogic.action.XccAction
+
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.util.Try
 
 class XccMarkLogicInsertCall(requestName: Expression[String],
                              uri: Expression[String],
@@ -34,24 +38,39 @@ class XccMarkLogicInsertCall(requestName: Expression[String],
                              statsEngine: StatsEngine,
                              clock: Clock,
                              val next: Action)
-  extends Action with ChainableAction with NameGen {
+  extends XccAction with ChainableAction with NameGen {
 
   override def name: String = genName("xccMarkLogicInsertCall")
 
-  override def execute(session: Session): Unit = {
+  override def execute(session: Session): Unit = execute(session, xccMarkLogicComponents)
 
+   def sendQuery(session: Session): Unit = {
     val start = clock.nowMillis
-    val request = ContentFactory.newContent(uri(session).toOption.get, content(session).toOption.get, null)
-    val result = xccMarkLogicComponents.call(request)
-    val end = clock.nowMillis
+    val threadExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutorService(xccMarkLogicComponents.xccExecutorService)
+    Future {
+      val request = ContentFactory.newContent(uri(session).toOption.get, content(session).toOption.get, null)
+      xccMarkLogicComponents.call(request)
+    }(threadExecutionContext)
+      .onComplete {
+        case scala.util.Success(value) =>
+          next ! Try(performChecks(session, start, value)).recover {
+            case err =>
+              val logRequestName = requestName(session).toOption.getOrElse("XccInsertCall")
+              statsEngine.logCrash(session, logRequestName, err.getMessage)
+              session.markAsFailed
+          }.get
+        case fail: scala.util.Failure[_] => next ! log(start, clock.nowMillis, fail, requestName, session, statsEngine)
+      }(threadExecutionContext)
+  }
 
+  private def performChecks(session: Session, start: Long, result: String): Session = {
+    val end = clock.nowMillis
     requestName.apply(session).foreach { resolvedRequestName =>
       if (result == "")
         statsEngine.logResponse(session, resolvedRequestName, start, end, OK, None, None)
       else
         statsEngine.logResponse(session, resolvedRequestName, start, end, KO, None, Some(result))
     }
-    next ! session
+    session
   }
-
 }

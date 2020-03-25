@@ -19,12 +19,17 @@
  */
 package org.nuxeo.gatling.marklogic
 
+import com.marklogic.xcc.ResultSequence
 import io.gatling.commons.stats.{KO, OK}
 import io.gatling.commons.util.Clock
 import io.gatling.core.action.{Action, ChainableAction}
 import io.gatling.core.session._
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.util.NameGen
+import org.nuxeo.gatling.marklogic.action.XccAction
+
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.util.Try
 
 class XccMarkLogicGetCall(requestName: Expression[String],
                           uri: Expression[String],
@@ -32,24 +37,41 @@ class XccMarkLogicGetCall(requestName: Expression[String],
                           statsEngine: StatsEngine,
                           clock: Clock,
                           val  next:Action)
-  extends Action with ChainableAction with NameGen {
+  extends XccAction with ChainableAction with NameGen {
 
   override def name: String = genName("xccMarkLogicGetCall")
 
-  override def execute(session: Session): Unit = {
+  override def execute(session: Session): Unit = execute(session, xccMarkLogicComponents)
 
+  def sendQuery(session: Session): Unit = {
     val start = clock.nowMillis
-    val request = xccMarkLogicComponents.newAdhocQuery(s"fn:doc('${uri(session).toOption.get}')")
-    val result = xccMarkLogicComponents.call(request)
-    val end = clock.nowMillis
+    val threadExecutionContext: ExecutionContextExecutor = ExecutionContext.fromExecutorService(xccMarkLogicComponents.xccExecutorService)
+    Future {
+      val xccSession = xccMarkLogicComponents.newSession
+      val request = xccSession.newAdhocQuery(s"fn:doc('${uri(session).toOption.get}')")
+      xccMarkLogicComponents.call(xccSession, request)
+    }(threadExecutionContext)
+      .onComplete {
+        case scala.util.Success(value) =>
+          next ! Try(performChecks(session, start, value)).recover {
+            case err =>
+              val logRequestName = requestName(session).toOption.getOrElse("XccInsertCall")
+              statsEngine.logCrash(session, logRequestName, err.getMessage)
+              session.markAsFailed
+          }.get
+        case fail: scala.util.Failure[_] => next ! log(start, clock.nowMillis, fail, requestName, session, statsEngine)
+      }(threadExecutionContext)
+  }
 
+  private def performChecks(session: Session, start: Long, result: ResultSequence): Session = {
+    val end = clock.nowMillis
     requestName.apply(session).foreach { resolvedRequestName =>
       if (!result.hasNext)
         statsEngine.logResponse(session, resolvedRequestName, start, end, OK, None, None)
       else
-        statsEngine.logResponse(session, resolvedRequestName, start, end, KO, None, None) //Some(result))
+        statsEngine.logResponse(session, resolvedRequestName, start, end, KO, None, None)
     }
-    next ! session
+    session
   }
 
 }

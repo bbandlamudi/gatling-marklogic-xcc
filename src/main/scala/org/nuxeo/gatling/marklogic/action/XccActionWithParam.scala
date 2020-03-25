@@ -33,7 +33,13 @@ trait XccActionWithParam extends XccAction {
     value match {
       case _: Int => request.setNewIntegerVariable(key, value.asInstanceOf[Int])
       case _: Boolean => request.setNewVariable(key, ValueType.XS_BOOLEAN, value.asInstanceOf[Boolean])
-      case _ => request.setNewStringVariable(key, value.toString())
+      case _ => {
+        val valueAsString = value.asInstanceOf[String]
+        if (valueAsString == null) {
+          logger.warn(key + " is Null")
+        }
+        request.setNewVariable(key, ValueType.XS_STRING, valueAsString)
+      }
     }
   }
 
