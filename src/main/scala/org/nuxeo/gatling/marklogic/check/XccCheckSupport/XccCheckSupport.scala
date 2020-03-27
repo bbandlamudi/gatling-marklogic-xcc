@@ -41,7 +41,7 @@ trait XccCheckSupport {
   implicit def xccSingleTCheckMaterializer[T]: CheckMaterializer[XccSingleTCheck.XccSingleTCheckType, XccCheck[T], List[T], T] = XccSingleTCheck.singleTCheckMaterializer[T]
 
   @Deprecated
-  val XccManyResponse = manyResponse[ResultItem]
+  val xccManyResponse = manyResponse[ResultItem]
 
   def manyResponse[T]: DefaultFindCheckBuilder[XccManyTCheck.XccManyTCheckType, List[T], List[T]] = XccManyTCheck.manyTResults[T]
 
