@@ -27,7 +27,7 @@ import io.gatling.core.structure.ScenarioContext
 case class XccMarkLogicSearchBuilder(requestName: Expression[String], query: Expression[String])
   extends MarkLogicActionBuilder[ResultItem] {
 
-  def mapResult[T](mapFunction: ResultItem => T) = XccMarkLogicInvokeWithMappingActionBuilder(requestName, query, mapFunction)
+  def mapResult[T](mapFunction: ResultItem => T) = XccMarkLogicSearchWithMappingActionBuilder(requestName, query, mapFunction)
 
   override def build(ctx: ScenarioContext, next: Action): Action = {
     import ctx._
@@ -36,7 +36,7 @@ case class XccMarkLogicSearchBuilder(requestName: Expression[String], query: Exp
 
 }
 
-case class XccMarkLogicSearchBuilderWithMappingActionBuilder[T](requestName: Expression[String], query: Expression[String], mapFunction: ResultItem => T)
+case class XccMarkLogicSearchWithMappingActionBuilder[T](requestName: Expression[String], query: Expression[String], mapFunction: ResultItem => T)
   extends MarkLogicActionBuilder[T] {
 
   override def build(ctx: ScenarioContext, next: Action): Action = {
